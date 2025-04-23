@@ -27,10 +27,12 @@ public class AuthController {
         System.out.println(username);
         return authService.register(username, password);
     }
-
     // @CrossOrigin(origins = "http://localhost:3000")
-    @PostMapping("/login")
-    public String login(@RequestParam String username, @RequestParam String password) throws Exception {
+    @PostMapping(value = "/login", consumes = "application/json")
+    public String login(@RequestBody Map<String, String> credentials) throws Exception {
+        String username = credentials.get("username");
+        String password = credentials.get("password");
+        System.out.println("Login attempt: " + username + " / " + password);
         return authService.login(username, password);
     }
 }

@@ -21,12 +21,10 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.stereotype.Service;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.security.Key;
@@ -42,16 +40,21 @@ public class SecurityConfig {
     @Autowired
     private AuthService authService;
 
+    // Usa la misma KEY en todo el proyecto
     private static final Key SECRET_KEY = Keys.hmacShaKeyFor("secretsecretsecretsecretsecretsecret".getBytes());
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http.csrf().disable()
+        http
+                .csrf().disable()
                 .cors().and()
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/auth/**", "count").permitAll()
-                        .anyRequest().authenticated())
+                        .requestMatchers("/auth/**").permitAll()    // rutas públicas
+                        .anyRequest().authenticated()                // el resto requiere auth
+                )
+                // Añadimos nuestro filtro **ANTES** de UsernamePasswordAuthenticationFilter
                 .addFilterBefore(jwtTokenFilter(), UsernamePasswordAuthenticationFilter.class);
+
         return http.build();
     }
 
@@ -61,32 +64,23 @@ public class SecurityConfig {
     }
 
     @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration)
-            throws Exception {
-        return authenticationConfiguration.getAuthenticationManager();
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration authConfig) throws Exception {
+        return authConfig.getAuthenticationManager();
     }
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration configuration = new CorsConfiguration();
-        configuration.addAllowedOrigin("http://localhost:3000");
-        configuration.addAllowedMethod("*");
-        configuration.addAllowedHeader("*");
-        configuration.setAllowCredentials(true);
+        CorsConfiguration cfg = new CorsConfiguration();
+        cfg.addAllowedOrigin("http://localhost:3000");
+        cfg.addAllowedMethod("*");
+        cfg.addAllowedHeader("*");
+        cfg.setAllowCredentials(true);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", configuration);
+        source.registerCorsConfiguration("/**", cfg);
         return source;
     }
 
-    @PostMapping("/forgot-password")
-    public String forgotPassword(@RequestParam String username) {
-        try {
-            return authService.sendPasswordResetToken(username);
-        } catch (Exception e) {
-            return "Error al enviar el token de recuperación de contraseña";
-        }
-    }
-
+    // --- Filtro JWT interno ---
     public class JwtTokenFilter extends OncePerRequestFilter {
 
         private final AuthService authService;
@@ -95,13 +89,24 @@ public class SecurityConfig {
             this.authService = authService;
         }
 
+        /**
+         * Evita que el filtro JWT se aplique sobre /auth/**
+         */
         @Override
-        protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
-                throws ServletException, IOException {
-            String authorizationHeader = request.getHeader("Authorization");
+        protected boolean shouldNotFilter(HttpServletRequest request) {
+            String path = request.getServletPath();
+            return path.startsWith("/auth/");
+        }
 
-            if (authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
-                String token = authorizationHeader.substring(7);
+        @Override
+        protected void doFilterInternal(HttpServletRequest request,
+                                        HttpServletResponse response,
+                                        FilterChain chain)
+                throws ServletException, IOException {
+
+            String header = request.getHeader("Authorization");
+            if (header != null && header.startsWith("Bearer ")) {
+                String token = header.substring(7);
                 try {
                     String username = Jwts.parserBuilder()
                             .setSigningKey(SECRET_KEY)
@@ -113,12 +118,12 @@ public class SecurityConfig {
                     if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                         User user = authService.getUserByUsername(username);
                         if (user != null) {
-                            UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                                    user, null, user.getAuthorities());
-                            SecurityContextHolder.getContext().setAuthentication(authentication);
+                            UsernamePasswordAuthenticationToken auth =
+                                    new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
+                            SecurityContextHolder.getContext().setAuthentication(auth);
                         }
                     }
-                } catch (Exception e) {
+                } catch (Exception ex) {
                     response.sendError(HttpServletResponse.SC_FORBIDDEN, "Token inválido o expirado");
                     return;
                 }
@@ -128,6 +133,7 @@ public class SecurityConfig {
         }
     }
 
+    // --- Servicio de Auth interno ---
     @Service
     public static class AuthService {
 
@@ -135,80 +141,38 @@ public class SecurityConfig {
         private UserRepository userRepository;
 
         private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
-        private final Map<String, String> resetTokens = new HashMap<>();
 
         public String register(String username, String password) {
-            User user = new User();
-            user.setUsername(username);
-            user.setPassword(passwordEncoder.encode(password));
-            user.setRole("ADMIN");
-            userRepository.save(user);
+            User u = new User();
+            u.setUsername(username);
+            u.setPassword(passwordEncoder.encode(password));
+            u.setRole("ADMIN");
+            userRepository.save(u);
             return "User registered successfully";
         }
 
-        public String resetPassword(String token, String newPassword) throws Exception {
-            String username = Jwts.parserBuilder()
-                    .setSigningKey(SECRET_KEY)
-                    .build()
-                    .parseClaimsJws(token)
-                    .getBody()
-                    .getSubject();
-
-            Optional<User> userOpt = userRepository.findByUsername(username);
-            if (userOpt.isPresent()) {
-                User user = userOpt.get();
-                user.setPassword(passwordEncoder.encode(newPassword));
-                userRepository.save(user);
-                return "Contraseña actualizada correctamente";
-            } else {
-                throw new Exception("Token inválido o usuario no encontrado");
-            }
-        }
-
         public String login(String username, String password) throws Exception {
-            Optional<User> userOpt = userRepository.findByUsername(username);
-            if (userOpt.isPresent()) {
-                User user = userOpt.get();
-                if (passwordEncoder.matches(password, user.getPassword())) {
-                    return generateToken(user);
-                } else {
-                    throw new Exception("Invalid credentials");
-                }
-            } else {
-                throw new Exception("User not found");
+            Optional<User> opt = userRepository.findByUsername(username);
+            if (opt.isEmpty() || !passwordEncoder.matches(password, opt.get().getPassword())) {
+                throw new Exception("Credenciales inválidas");
             }
+            return generateToken(opt.get());
         }
 
         public User getUserByUsername(String username) {
             return userRepository.findByUsername(username).orElse(null);
         }
 
-        public String sendPasswordResetToken(String username) {
-            Optional<User> userOpt = userRepository.findByUsername(username);
-            if (userOpt.isPresent()) {
-                String token = generateResetToken();
-                resetTokens.put(username, token);
-                return "Password reset token: " + token;
-            } else {
-                return "User not found";
-            }
-        }
-
         private String generateToken(User user) {
             Map<String, Object> claims = new HashMap<>();
             claims.put("role", user.getRole());
-
             return Jwts.builder()
                     .setClaims(claims)
                     .setSubject(user.getUsername())
                     .setIssuedAt(new Date())
-                    .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 10))
+                    .setExpiration(new Date(System.currentTimeMillis() + 86400000)) // 24h
                     .signWith(SECRET_KEY)
                     .compact();
-        }
-
-        private String generateResetToken() {
-            return Long.toHexString(Double.doubleToLongBits(Math.random()));
         }
     }
 }
