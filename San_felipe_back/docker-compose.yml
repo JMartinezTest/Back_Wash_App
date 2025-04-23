@@ -1,0 +1,14 @@
+services:
+  mongo:
+    image: mongo:latest  # Usa la imagen oficial de MongoDB
+    container_name: mongodb_container  # Nombre del contenedor
+    ports:
+      - "27017:27017"  # Expone el puerto 27017 de MongoDB
+    # environment:
+      # MONGO_INITDB_ROOT_USERNAME: root  # Usuario root (opcional)
+      # MONGO_INITDB_ROOT_PASSWORD: password  # Contraseña del usuario root (opcional)
+    volumes:
+      - mongo_data:/data/db  # Volumen para persistir los datos de MongoDB
+
+volumes:
+  mongo_data: 
