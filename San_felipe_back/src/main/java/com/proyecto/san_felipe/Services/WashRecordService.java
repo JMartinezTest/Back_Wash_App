@@ -21,14 +21,20 @@ public class WashRecordService {
     private WashRecordRepository washRecordRepository;
 
     public WashRecord registerWashRecord(WashRecord washRecord) {
-        // Validar que el servicio ofrecido exista
-        Optional<ServiceOffered> service = serviceOfferedRepository.findById(washRecord.getServiceOffered());
-        if (service.isEmpty()) {
-            throw new IllegalArgumentException("El servicio ofrecido con ID " + washRecord.getServiceOffered() + " no existe.");
+        // Validar que los servicios ofrecidos existan y calcular el total
+        double total = 0.0;
+        if (washRecord.getServicesOffered() != null) {
+            for (String serviceId : washRecord.getServicesOffered()) {
+                Optional<ServiceOffered> service = serviceOfferedRepository.findById(serviceId);
+                if (service.isEmpty()) {
+                    throw new IllegalArgumentException("El servicio ofrecido con ID " + serviceId + " no existe.");
+                }
+                total += service.get().getPrice();
+            }
         }
-        Date now = new Date();
-        washRecord.setDate(now);
-        System.out.println("Fecha asignada: " + now);
+
+        washRecord.setTotalPrice(total);
+        washRecord.setDate(new Date());
         return washRecordRepository.save(washRecord);
     }
 
@@ -50,24 +56,12 @@ public class WashRecordService {
 
     public double calculateEmployeePayment(String employee, Date startDate, Date endDate) {
         List<WashRecord> records = washRecordRepository.findByEmployeeAndDateBetween(employee, startDate, endDate);
-
         if (records.isEmpty()) {
-            System.out.println("loque");
-            return 0.0; // No hay registros para el rango de fechas
+            return 0.0;
         }
-
-        double totalPayment = 0;
-
-        for (WashRecord record : records) {
-            Optional<ServiceOffered> service = serviceOfferedRepository.findById(record.getServiceOffered());
-            if (service.isPresent()) {
-                totalPayment += service.get().getPrice();
-            } else {
-                // Registra un error en el log en lugar de lanzar excepción
-                System.err.println("Servicio con ID " + record.getServiceOffered() + " no encontrado.");
-            }
-        }
-
+        double totalPayment = records.stream()
+                .mapToDouble(WashRecord::getTotalPrice)
+                .sum();
         return totalPayment * 0.35; // Aplica el 35% al total
     }
 }
