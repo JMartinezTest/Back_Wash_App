@@ -27,6 +27,7 @@ public class AuthController {
         System.out.println(username);
         return authService.register(username, password);
     }
+
     // @CrossOrigin(origins = "http://localhost:3000")
     @PostMapping(value = "/login", consumes = "application/json")
     public String login(@RequestBody Map<String, String> credentials) throws Exception {
