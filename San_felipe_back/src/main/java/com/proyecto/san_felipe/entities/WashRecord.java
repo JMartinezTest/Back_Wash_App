@@ -5,6 +5,7 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.util.Date;
+import java.util.List;
 
 @Document
 public class WashRecord {
@@ -14,7 +15,9 @@ public class WashRecord {
     private Date date;
     private String employee;
     private String car;
-    private String serviceOffered;
+    private String client;
+    private List<String> serviceOffered;
+    private double total;
 
     public WashRecord() {
 
@@ -52,11 +55,25 @@ public class WashRecord {
         this.car = car;
     }
 
-    public String getServiceOffered() {
+    public String getClient() {
+        return client;
+    }
+
+    public void setClient(String client) {
+        this.client = client;
+    }
+
+    public List<String> getServiceOffered() {
         return serviceOffered;
     }
 
-    public void setServiceOffered(String serviceOffered) {
+    public void setServiceOffered(List<String> serviceOffered) {
         this.serviceOffered = serviceOffered;
+    }
+    public double getTotal(){
+        return total;
+    }
+    public void setTotal(double total){
+        this.total = total;
     }
 }
