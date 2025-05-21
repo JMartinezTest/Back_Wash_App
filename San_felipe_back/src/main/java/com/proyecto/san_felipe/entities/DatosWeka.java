@@ -8,65 +8,102 @@ public class DatosWeka {
 
     @Id
     private String id;
-    private Integer idCliente;
-    private String diaSemana;
-    private Double hora;
-    private String clima;
-    private Double temperatura;
-    private String tipoServicio;
-    private Integer historialVisitas;
-    private String promocionesActivas;
-    private String prediccion;
-    private String confianza;
+
+    private String diaSemana;           // {Lunes, Martes, ..., Domingo}
+    private String jornada;             // {Mañana, Tarde, Noche}
+    private String clima;               // {Soleado, Lluvioso, Nublado}
+    private Double temperatura;         // NUMERIC
+    private String tipoServicio;        // {Basico, Completo, Premium}
+    private Integer historialVisitas;  // NUMERIC
+    private String promocionesActivas; // {Si, No}
+    private String clientesEstimados;  // {Baja, Media, Alta}
 
     public DatosWeka() {}
 
-    public DatosWeka(Integer idCliente, String diaSemana, Double hora, String clima,
+    public DatosWeka(String diaSemana, String jornada, String clima,
                      Double temperatura, String tipoServicio, Integer historialVisitas,
-                     String promocionesActivas, String prediccion, String confianza) {
-        this.idCliente = idCliente;
+                     String promocionesActivas, String clientesEstimados) {
         this.diaSemana = diaSemana;
-        this.hora = hora;
+        this.jornada = jornada;
         this.clima = clima;
         this.temperatura = temperatura;
         this.tipoServicio = tipoServicio;
         this.historialVisitas = historialVisitas;
         this.promocionesActivas = promocionesActivas;
-        this.prediccion = prediccion;
-        this.confianza = confianza;
+        this.clientesEstimados = clientesEstimados;
     }
 
-    // Getters and setters
-    public String getId() { return id; }
-    public void setId(String id) { this.id = id; }
+    // Getters y Setters
 
-    public Integer getIdCliente() { return idCliente; }
-    public void setIdCliente(Integer idCliente) { this.idCliente = idCliente; }
+    public String getId() {
+        return id;
+    }
 
-    public String getDiaSemana() { return diaSemana; }
-    public void setDiaSemana(String diaSemana) { this.diaSemana = diaSemana; }
+    public void setId(String id) {
+        this.id = id;
+    }
 
-    public Double getHora() { return hora; }
-    public void setHora(Double hora) { this.hora = hora; }
+    public String getDiaSemana() {
+        return diaSemana;
+    }
 
-    public String getClima() { return clima; }
-    public void setClima(String clima) { this.clima = clima; }
+    public void setDiaSemana(String diaSemana) {
+        this.diaSemana = diaSemana;
+    }
 
-    public Double getTemperatura() { return temperatura; }
-    public void setTemperatura(Double temperatura) { this.temperatura = temperatura; }
+    public String getJornada() {
+        return jornada;
+    }
 
-    public String getTipoServicio() { return tipoServicio; }
-    public void setTipoServicio(String tipoServicio) { this.tipoServicio = tipoServicio; }
+    public void setJornada(String jornada) {
+        this.jornada = jornada;
+    }
 
-    public Integer getHistorialVisitas() { return historialVisitas; }
-    public void setHistorialVisitas(Integer historialVisitas) { this.historialVisitas = historialVisitas; }
+    public String getClima() {
+        return clima;
+    }
 
-    public String getPromocionesActivas() { return promocionesActivas; }
-    public void setPromocionesActivas(String promocionesActivas) { this.promocionesActivas = promocionesActivas; }
+    public void setClima(String clima) {
+        this.clima = clima;
+    }
 
-    public String getPrediccion() { return prediccion; }
-    public void setPrediccion(String prediccion) { this.prediccion = prediccion; }
+    public Double getTemperatura() {
+        return temperatura;
+    }
 
-    public String getConfianza() { return confianza; }
-    public void setConfianza(String confianza) { this.confianza = confianza; }
+    public void setTemperatura(Double temperatura) {
+        this.temperatura = temperatura;
+    }
+
+    public String getTipoServicio() {
+        return tipoServicio;
+    }
+
+    public void setTipoServicio(String tipoServicio) {
+        this.tipoServicio = tipoServicio;
+    }
+
+    public Integer getHistorialVisitas() {
+        return historialVisitas;
+    }
+
+    public void setHistorialVisitas(Integer historialVisitas) {
+        this.historialVisitas = historialVisitas;
+    }
+
+    public String getPromocionesActivas() {
+        return promocionesActivas;
+    }
+
+    public void setPromocionesActivas(String promocionesActivas) {
+        this.promocionesActivas = promocionesActivas;
+    }
+
+    public String getClientesEstimados() {
+        return clientesEstimados;
+    }
+
+    public void setClientesEstimados(String clientesEstimados) {
+        this.clientesEstimados = clientesEstimados;
+    }
 }
