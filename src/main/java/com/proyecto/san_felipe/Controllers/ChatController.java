@@ -11,11 +11,11 @@ import java.util.*;
 @RequestMapping("/chat")
 public class ChatController {
 
-    @Value("${openrouter.api.key}")
-    private String openRouterApiKey;
+    @Value("${groq.api.key}")
+    private String groqApiKey;
 
     private final RestTemplate restTemplate = new RestTemplate();
-    private static final String OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
+    private static final String GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 
     private static final String SYSTEM_PROMPT =
             "Eres el asistente virtual inteligente del Lavadero de Autos San Felipe. " +
@@ -34,16 +34,14 @@ public class ChatController {
         try {
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.setBearerAuth(openRouterApiKey);
-            headers.add("HTTP-Referer", "https://front-wash-app-production.up.railway.app");
-            headers.add("X-Title", "San Felipe Assistant");
+            headers.setBearerAuth(groqApiKey);
 
             List<Map<String, String>> messages = new ArrayList<>();
             messages.add(Map.of("role", "system", "content", SYSTEM_PROMPT));
             messages.add(Map.of("role", "user", "content", request.getMessage()));
 
             Map<String, Object> body = new HashMap<>();
-            body.put("model", "openai/gpt-4o-mini");
+            body.put("model", "llama-3.1-8b-instant");
             body.put("messages", messages);
             body.put("temperature", 0.7);
             body.put("max_tokens", 1024);
@@ -51,7 +49,7 @@ public class ChatController {
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
 
             ResponseEntity<Map> response = restTemplate.exchange(
-                    OPENROUTER_API_URL, HttpMethod.POST, entity, Map.class);
+                    GROQ_API_URL, HttpMethod.POST, entity, Map.class);
 
             if (response.getBody() != null) {
                 List<Map<String, Object>> choices =
