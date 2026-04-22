@@ -2,6 +2,8 @@ package com.proyecto.san_felipe.security;
 
 import com.proyecto.san_felipe.Repository.UserRepository;
 import com.proyecto.san_felipe.entities.User;
+import com.proyecto.san_felipe.security.SecurityConfig.AuthService;
+
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import jakarta.servlet.FilterChain;
@@ -95,37 +97,45 @@ public class SecurityConfig {
             this.authService = authService;
         }
 
-        @Override
-        protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
-                throws ServletException, IOException {
-            String authorizationHeader = request.getHeader("Authorization");
+    @Override
+protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
+        throws ServletException, IOException {
 
-            if (authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
-                String token = authorizationHeader.substring(7);
-                try {
-                    String username = Jwts.parserBuilder()
-                            .setSigningKey(SECRET_KEY)
-                            .build()
-                            .parseClaimsJws(token)
-                            .getBody()
-                            .getSubject();
+    // 🔹 Excluir rutas públicas del filtro JWT
+    String path = request.getServletPath();
+    if (path.startsWith("/auth")) {
+        chain.doFilter(request, response);
+        return;
+    }
 
-                    if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                        User user = authService.getUserByUsername(username);
-                        if (user != null) {
-                            UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                                    user, null, user.getAuthorities());
-                            SecurityContextHolder.getContext().setAuthentication(authentication);
-                        }
-                    }
-                } catch (Exception e) {
-                    response.sendError(HttpServletResponse.SC_FORBIDDEN, "Token inválido o expirado");
-                    return;
+    String authorizationHeader = request.getHeader("Authorization");
+
+    if (authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
+        String token = authorizationHeader.substring(7);
+        try {
+            String username = Jwts.parserBuilder()
+                    .setSigningKey(SECRET_KEY)
+                    .build()
+                    .parseClaimsJws(token)
+                    .getBody()
+                    .getSubject();
+
+            if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                User user = authService.getUserByUsername(username);
+                if (user != null) {
+                    UsernamePasswordAuthenticationToken authentication =
+                            new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
+                    SecurityContextHolder.getContext().setAuthentication(authentication);
                 }
             }
-
-            chain.doFilter(request, response);
+        } catch (Exception e) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN, "Token inválido o expirado");
+            return;
         }
+    }
+
+    chain.doFilter(request, response);
+}
     }
 
     @Service

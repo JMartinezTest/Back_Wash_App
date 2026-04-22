@@ -1,5 +1,6 @@
 package com.proyecto.san_felipe.entities;
 
+import org.bson.types.ObjectId;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.security.core.GrantedAuthority;
@@ -12,7 +13,7 @@ import java.util.List;
 public class User implements UserDetails {
 
     @Id
-    private String id;
+   private ObjectId id; 
 
     private String username;
     private String password;
@@ -23,11 +24,11 @@ public class User implements UserDetails {
     }
 
     // Getters y setters
-    public String getId() {
+    public ObjectId getId() {
         return id;
     }
 
-    public void setId(String id) {
+    public void setId(ObjectId id) {
         this.id = id;
     }
 
@@ -80,7 +81,7 @@ public class User implements UserDetails {
         this.role = role;
     }
 
-    public User(String id, String username, String password, String role) {
+    public User(ObjectId id, String username, String password, String role) {
         this.id = id;
         this.username = username;
         this.password = password;

@@ -1,7 +1,6 @@
 package com.proyecto.san_felipe.Services;
 
 import com.proyecto.san_felipe.Repository.EmployeeRepository;
-import com.proyecto.san_felipe.entities.Car;
 import com.proyecto.san_felipe.entities.Employee;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;

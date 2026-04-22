@@ -29,8 +29,11 @@ public class AuthController {
     }
 
     // @CrossOrigin(origins = "http://localhost:3000")
-    @PostMapping("/login")
-    public String login(@RequestParam String username, @RequestParam String password) throws Exception {
-        return authService.login(username, password);
-    }
+@PostMapping("/login")
+public String login(@RequestBody Map<String, String> credentials) throws Exception {
+    String username = credentials.get("username");
+    String password = credentials.get("password");
+    return authService.login(username, password);
+}
+
 }
