@@ -9,7 +9,6 @@ import java.util.*;
 
 @RestController
 @RequestMapping("/chat")
-@CrossOrigin(origins = "*")
 public class ChatController {
 
     // Cambiamos a las variables de OpenRouter

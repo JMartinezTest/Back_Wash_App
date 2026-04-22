@@ -21,7 +21,6 @@ import java.util.logging.Logger;
 
 @RestController
 @RequestMapping("/api")
-@CrossOrigin(origins = "http://localhost:3000")
 public class PredictionController {
 
     private static final Logger LOGGER = Logger.getLogger(PredictionController.class.getName());

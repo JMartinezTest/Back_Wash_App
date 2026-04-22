@@ -18,7 +18,6 @@ public class AuthController {
         return "respuesta cierta";
     }
 
-    @CrossOrigin(origins = "http://localhost:3000")
     @PostMapping("/register")
     public String register(@RequestBody Map<String, String> credentials) {
         String username = credentials.get("username");
