@@ -53,8 +53,6 @@
 			<groupId>nz.ac.waikato.cms.weka</groupId>
 			<artifactId>weka-stable</artifactId>
 			<version>3.8.6</version>
-			<scope>system</scope>
-			<systemPath>${project.basedir}/lib/weka.jar</systemPath>
 		</dependency>
 		<dependency>
 			<groupId>io.jsonwebtoken</groupId>
