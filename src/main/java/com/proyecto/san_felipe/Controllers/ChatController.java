@@ -11,12 +11,11 @@ import java.util.*;
 @RequestMapping("/chat")
 public class ChatController {
 
-    @Value("${gemini.api.key}")
-    private String geminiApiKey;
+    @Value("${openrouter.api.key}")
+    private String openRouterApiKey;
 
     private final RestTemplate restTemplate = new RestTemplate();
-    private static final String GEMINI_API_URL =
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=";
+    private static final String OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
 
     private static final String SYSTEM_PROMPT =
             "Eres el asistente virtual inteligente del Lavadero de Autos San Felipe. " +
@@ -28,48 +27,40 @@ public class ChatController {
             "- Vehículos: consulta por placa, marca, color. " +
             "- Predicción de demanda: interpretar resultados del modelo de machine learning. " +
             "- Consejos sobre cómo mejorar la atención al cliente y aumentar las ventas. " +
-            "Responde siempre en español, de forma amable, clara y profesional. " +
-            "Si no sabes algo específico del negocio, da una respuesta útil y general sobre lavaderos de autos.";
+            "Responde siempre en español, de forma amable, clara y profesional.";
 
     @PostMapping("/message")
     public ResponseEntity<?> sendMessage(@RequestBody ChatRequest request) {
         try {
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.setBearerAuth(openRouterApiKey);
+            headers.add("HTTP-Referer", "https://front-wash-app-production.up.railway.app");
+            headers.add("X-Title", "San Felipe Assistant");
 
-            Map<String, Object> systemInstruction = new HashMap<>();
-            systemInstruction.put("parts", List.of(Map.of("text", SYSTEM_PROMPT)));
+            List<Map<String, String>> messages = new ArrayList<>();
+            messages.add(Map.of("role", "system", "content", SYSTEM_PROMPT));
+            messages.add(Map.of("role", "user", "content", request.getMessage()));
 
-            Map<String, Object> userContent = new HashMap<>();
-            userContent.put("role", "user");
-            userContent.put("parts", List.of(Map.of("text", request.getMessage())));
+            Map<String, Object> body = new HashMap<>();
+            body.put("model", "openai/gpt-4o-mini");
+            body.put("messages", messages);
+            body.put("temperature", 0.7);
+            body.put("max_tokens", 1024);
 
-            Map<String, Object> requestBody = new HashMap<>();
-            requestBody.put("system_instruction", systemInstruction);
-            requestBody.put("contents", List.of(userContent));
-
-            Map<String, Object> generationConfig = new HashMap<>();
-            generationConfig.put("temperature", 0.7);
-            generationConfig.put("maxOutputTokens", 1024);
-            requestBody.put("generationConfig", generationConfig);
-
-            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
 
             ResponseEntity<Map> response = restTemplate.exchange(
-                    GEMINI_API_URL + geminiApiKey,
-                    HttpMethod.POST,
-                    entity,
-                    Map.class
-            );
+                    OPENROUTER_API_URL, HttpMethod.POST, entity, Map.class);
 
             if (response.getBody() != null) {
-                List<Map<String, Object>> candidates =
-                        (List<Map<String, Object>>) response.getBody().get("candidates");
-                if (candidates != null && !candidates.isEmpty()) {
-                    Map<String, Object> content = (Map<String, Object>) candidates.get(0).get("content");
-                    List<Map<String, Object>> parts = (List<Map<String, Object>>) content.get("parts");
-                    String text = (String) parts.get(0).get("text");
-                    return ResponseEntity.ok(new ChatResponse(text));
+                List<Map<String, Object>> choices =
+                        (List<Map<String, Object>>) response.getBody().get("choices");
+                if (choices != null && !choices.isEmpty()) {
+                    Map<String, Object> message =
+                            (Map<String, Object>) choices.get(0).get("message");
+                    String content = (String) message.get("content");
+                    return ResponseEntity.ok(new ChatResponse(content));
                 }
             }
 
@@ -78,7 +69,7 @@ public class ChatController {
 
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "Error al procesar la solicitud: " + e.getMessage()));
+                    .body(Map.of("error", "Error: " + e.getMessage()));
         }
     }
 
