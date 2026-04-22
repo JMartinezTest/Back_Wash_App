@@ -71,7 +71,10 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.addAllowedOrigin("http://localhost:3000");
+        configuration.addAllowedOriginPattern("http://localhost:3000");
+        configuration.addAllowedOriginPattern("http://localhost:5173");
+        configuration.addAllowedOriginPattern("https://front-wash-app-production.up.railway.app");
+        configuration.addAllowedOriginPattern("https://*.railway.app");
         configuration.addAllowedMethod("*");
         configuration.addAllowedHeader("*");
         configuration.setAllowCredentials(true);
