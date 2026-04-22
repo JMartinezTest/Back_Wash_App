@@ -16,12 +16,20 @@ public class ChatController {
 
     private final RestTemplate restTemplate = new RestTemplate();
     private static final String GEMINI_API_URL =
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=";
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=";
 
     private static final String SYSTEM_PROMPT =
-            "Eres un asistente virtual del sistema de lavado de autos San Felipe. " +
-            "Ayudas con información sobre lavados, servicios, empleados, clientes y vehículos. " +
-            "Responde de manera concisa, amable y profesional en español.";
+            "Eres el asistente virtual inteligente del Lavadero de Autos San Felipe. " +
+            "Tu rol es ayudar al personal del negocio con información sobre: " +
+            "- Registro y consulta de lavados realizados. " +
+            "- Servicios ofrecidos: Básico, Completo y Premium (precios, duración, diferencias). " +
+            "- Gestión de clientes: historial, datos de contacto, vehículos registrados. " +
+            "- Empleados: asignación de lavados, cálculo de comisiones (35% del total). " +
+            "- Vehículos: consulta por placa, marca, color. " +
+            "- Predicción de demanda: interpretar resultados del modelo de machine learning. " +
+            "- Consejos sobre cómo mejorar la atención al cliente y aumentar las ventas. " +
+            "Responde siempre en español, de forma amable, clara y profesional. " +
+            "Si no sabes algo específico del negocio, da una respuesta útil y general sobre lavaderos de autos.";
 
     @PostMapping("/message")
     public ResponseEntity<?> sendMessage(@RequestBody ChatRequest request) {
