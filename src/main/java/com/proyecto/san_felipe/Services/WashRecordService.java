@@ -21,14 +21,15 @@ public class WashRecordService {
     private WashRecordRepository washRecordRepository;
 
     public WashRecord registerWashRecord(WashRecord washRecord) {
-        // Validar que el servicio ofrecido exista
-        Optional<ServiceOffered> service = serviceOfferedRepository.findById(washRecord.getServiceOffered());
-        if (service.isEmpty()) {
-            throw new IllegalArgumentException("El servicio ofrecido con ID " + washRecord.getServiceOffered() + " no existe.");
+        if (washRecord.getServiceOffered() == null || washRecord.getServiceOffered().isEmpty()) {
+            throw new IllegalArgumentException("Debe seleccionar al menos un servicio.");
         }
-        Date now = new Date();
-        washRecord.setDate(now);
-        System.out.println("Fecha asignada: " + now);
+        for (String serviceId : washRecord.getServiceOffered()) {
+            if (serviceOfferedRepository.findById(serviceId).isEmpty()) {
+                throw new IllegalArgumentException("El servicio con ID " + serviceId + " no existe.");
+            }
+        }
+        washRecord.setDate(new Date());
         return washRecordRepository.save(washRecord);
     }
 
@@ -52,22 +53,23 @@ public class WashRecordService {
         List<WashRecord> records = washRecordRepository.findByEmployeeAndDateBetween(employee, startDate, endDate);
 
         if (records.isEmpty()) {
-            System.out.println("loque");
-            return 0.0; // No hay registros para el rango de fechas
+            return 0.0;
         }
 
         double totalPayment = 0;
-
         for (WashRecord record : records) {
-            Optional<ServiceOffered> service = serviceOfferedRepository.findById(record.getServiceOffered());
-            if (service.isPresent()) {
-                totalPayment += service.get().getPrice();
-            } else {
-                // Registra un error en el log en lugar de lanzar excepción
-                System.err.println("Servicio con ID " + record.getServiceOffered() + " no encontrado.");
+            if (record.getServiceOffered() != null) {
+                for (String serviceId : record.getServiceOffered()) {
+                    Optional<ServiceOffered> service = serviceOfferedRepository.findById(serviceId);
+                    if (service.isPresent()) {
+                        totalPayment += service.get().getPrice();
+                    } else {
+                        System.err.println("Servicio con ID " + serviceId + " no encontrado.");
+                    }
+                }
             }
         }
 
-        return totalPayment * 0.35; // Aplica el 35% al total
+        return totalPayment * 0.35;
     }
 }
