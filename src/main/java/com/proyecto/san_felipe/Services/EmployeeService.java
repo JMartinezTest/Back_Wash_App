@@ -21,6 +21,20 @@ public class EmployeeService {
         return employeeRepository.findAll();
     }
 
+    public Employee getEmployeeById(String id) {
+        return employeeRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("El empleado " + id + " no existe."));
+    }
+
+    public Employee updateEmployee(String id, Employee datos) {
+        Employee empleado = getEmployeeById(id);
+        empleado.setName(datos.getName());
+        empleado.setLastName(datos.getLastName());
+        empleado.setPosition(datos.getPosition());
+        empleado.setPhoneNumber(datos.getPhoneNumber());
+        return employeeRepository.save(empleado);
+    }
+
     public void deleteEmployeeById(String id){
         Employee employee = employeeRepository.findById(id).orElse(null);
         if(employee!=null){

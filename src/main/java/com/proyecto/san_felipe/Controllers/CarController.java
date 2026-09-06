@@ -17,8 +17,11 @@ public class CarController {
     private CarService carService;
 
     @GetMapping
-    public List<Car> findALl() {
-        return carService.getAllCars();
+    public List<Car> findALl(@RequestParam(value = "clientId", required = false) String clientId) {
+        // Con ?clientId=... se obtienen solo los vehiculos de ese cliente.
+        return clientId == null || clientId.isBlank()
+                ? carService.getAllCars()
+                : carService.getCarsByClient(clientId);
     }
 
 
@@ -39,6 +42,10 @@ public class CarController {
     @GetMapping("/{licencePlate}")
     public ResponseEntity<Car> findCarByLicencePlate(@PathVariable("licencePlate") String licencePlate) {
         Car car = carService.getCarByLicencePlate(licencePlate);
+        if (car == null) {
+            // El listado de vehiculos identifica por id, no por placa.
+            car = carService.getCarByIdOrNull(licencePlate);
+        }
         if (car != null) {
             return ResponseEntity.ok(car);
         } else {
@@ -47,5 +54,11 @@ public class CarController {
         }
 
 
+    }
+
+    @PutMapping("/{identificador}")
+    public ResponseEntity<Car> updateCar(@PathVariable("identificador") String identificador,
+                                         @RequestBody Car car) {
+        return ResponseEntity.ok(carService.updateCar(identificador, car));
     }
 }

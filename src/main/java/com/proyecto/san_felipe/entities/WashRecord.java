@@ -18,6 +18,14 @@ public class WashRecord {
     private List<String> serviceOffered;
     private double total;
 
+    /**
+     * Condiciones meteorologicas en el momento del lavado. Se rellenan solas desde
+     * el servicio de clima: son dos de las variables del modelo de demanda, y sin
+     * ellas el historial no sirve para reentrenarlo con datos propios.
+     */
+    private String clima;
+    private Double temperatura;
+
     public WashRecord() {}
 
     public String getId() { return id; }
@@ -40,4 +48,8 @@ public class WashRecord {
 
     public double getTotal() { return total; }
     public void setTotal(double total) { this.total = total; }
+    public String getClima() { return clima; }
+    public void setClima(String clima) { this.clima = clima; }
+    public Double getTemperatura() { return temperatura; }
+    public void setTemperatura(Double temperatura) { this.temperatura = temperatura; }
 }

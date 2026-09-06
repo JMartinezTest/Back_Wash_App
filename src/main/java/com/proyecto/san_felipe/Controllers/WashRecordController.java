@@ -29,6 +29,23 @@ public class WashRecordController {
         return new ResponseEntity<>(savedWashRecord, HttpStatus.CREATED);
     }
 
+    @GetMapping("/{id}")
+    public ResponseEntity<WashRecord> findById(@PathVariable("id") String id) {
+        return ResponseEntity.ok(washRecordService.getWashRecordById(id));
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<WashRecord> updateWashRecord(
+            @PathVariable("id") String id, @RequestBody WashRecord washRecord) {
+        return ResponseEntity.ok(washRecordService.updateWashRecord(id, washRecord));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<String> deleteWashRecord(@PathVariable("id") String id) {
+        washRecordService.deleteWashRecordById(id);
+        return ResponseEntity.ok("Lavado " + id + " eliminado.");
+    }
+
     @GetMapping("/by_employees")
     public ResponseEntity<List<WashRecord>> getWashRecordByEmployeeAndDate(
             @RequestParam String employee,

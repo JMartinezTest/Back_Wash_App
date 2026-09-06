@@ -26,4 +26,21 @@ public class ServiceOfferedController {
         ServiceOffered savedServiceOffered = serviceOfferedService.registerServiceOffered(serviceOffered);
         return new ResponseEntity<>(savedServiceOffered, HttpStatus.CREATED);
     }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<ServiceOffered> findById(@PathVariable("id") String id) {
+        return ResponseEntity.ok(serviceOfferedService.getServiceOfferedById(id));
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<ServiceOffered> updateServiceOffered(
+            @PathVariable("id") String id, @RequestBody ServiceOffered serviceOffered) {
+        return ResponseEntity.ok(serviceOfferedService.updateServiceOffered(id, serviceOffered));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<String> deleteServiceOffered(@PathVariable("id") String id) {
+        serviceOfferedService.deleteServiceOfferedById(id);
+        return ResponseEntity.ok("Servicio " + id + " eliminado.");
+    }
 }

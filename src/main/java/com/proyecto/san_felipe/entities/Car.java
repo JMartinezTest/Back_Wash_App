@@ -1,14 +1,8 @@
 package com.proyecto.san_felipe.entities;
 
-
-
 import org.springframework.data.annotation.Id;
-import org.springframework.data.mongodb.core.mapping.DBRef;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
-
-
-import java.util.List;
 
 @Document
 public class Car {
@@ -21,10 +15,16 @@ public class Car {
     @Field
     private String color;
 
-    @DBRef
-    private Client client;
-    @DBRef
-    private List<WashRecord> washedList;
+    /**
+     * Cliente propietario del vehiculo.
+     *
+     * Se guarda el id como texto, igual que hacen los demas documentos (WashRecord
+     * referencia asi a cliente, empleado y vehiculo). Antes habia aqui un @DBRef a
+     * Client sin getter ni setter, asi que nunca llego a guardarse: los vehiculos
+     * creados antes de este cambio tienen el campo vacio.
+     */
+    @Field
+    private String clientId;
 
     public Car() {
 
@@ -60,5 +60,13 @@ public class Car {
 
     public void setColor(String color) {
         this.color = color;
+    }
+
+    public String getClientId() {
+        return clientId;
+    }
+
+    public void setClientId(String clientId) {
+        this.clientId = clientId;
     }
 }

@@ -21,4 +21,22 @@ public class ClientService {
     public List<Client> getAllClients() {
         return clientRepository.findAll();
     }
+
+    public Client getClientById(String id) {
+        return clientRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("El cliente " + id + " no existe."));
+    }
+
+    public Client updateClient(String id, Client datos) {
+        Client cliente = getClientById(id);
+        cliente.setName(datos.getName());
+        cliente.setLastName(datos.getLastName());
+        cliente.setNit(datos.getNit());
+        cliente.setPhoneNumber(datos.getPhoneNumber());
+        return clientRepository.save(cliente);
+    }
+
+    public void deleteClientById(String id) {
+        clientRepository.delete(getClientById(id));
+    }
 }

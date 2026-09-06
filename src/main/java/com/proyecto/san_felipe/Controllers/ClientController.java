@@ -33,4 +33,19 @@ public class ClientController {
         return new ResponseEntity<>(savedClient, HttpStatus.CREATED);
     }
 
+    @GetMapping("/{id}")
+    public ResponseEntity<Client> findById(@PathVariable("id") String id) {
+        return ResponseEntity.ok(clientService.getClientById(id));
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<Client> updateClient(@PathVariable("id") String id, @RequestBody Client client) {
+        return ResponseEntity.ok(clientService.updateClient(id, client));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<String> deleteClient(@PathVariable("id") String id) {
+        clientService.deleteClientById(id);
+        return ResponseEntity.ok("Cliente " + id + " eliminado.");
+    }
 }
