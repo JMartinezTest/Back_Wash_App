@@ -1,5 +1,7 @@
 package com.proyecto.san_felipe.entities;
 
+import java.util.Date;
+
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
@@ -8,7 +10,6 @@ public class DatosWeka {
 
     @Id
     private String id;
-    private Integer idCliente;
     private String diaSemana;
     private Double hora;
     private String clima;
@@ -19,12 +20,17 @@ public class DatosWeka {
     private String prediccion;
     private String confianza;
 
+    /**
+     * Momento en que se hizo la consulta. El dia de la semana no basta: sin esto
+     * dos predicciones de "Lunes" hechas en semanas distintas son indistinguibles.
+     */
+    private Date creadoEn;
+
     public DatosWeka() {}
 
-    public DatosWeka(Integer idCliente, String diaSemana, Double hora, String clima,
+    public DatosWeka(String diaSemana, Double hora, String clima,
                      Double temperatura, String tipoServicio, Integer historialVisitas,
                      String promocionesActivas, String prediccion, String confianza) {
-        this.idCliente = idCliente;
         this.diaSemana = diaSemana;
         this.hora = hora;
         this.clima = clima;
@@ -39,9 +45,6 @@ public class DatosWeka {
     // Getters and setters
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
-
-    public Integer getIdCliente() { return idCliente; }
-    public void setIdCliente(Integer idCliente) { this.idCliente = idCliente; }
 
     public String getDiaSemana() { return diaSemana; }
     public void setDiaSemana(String diaSemana) { this.diaSemana = diaSemana; }
@@ -68,5 +71,30 @@ public class DatosWeka {
     public void setPrediccion(String prediccion) { this.prediccion = prediccion; }
 
     public String getConfianza() { return confianza; }
+    public Date getCreadoEn() { return creadoEn; }
+    public void setCreadoEn(Date creadoEn) { this.creadoEn = creadoEn; }
     public void setConfianza(String confianza) { this.confianza = confianza; }
+
+    /** Solo para la previsión del día: rango horario a evaluar. No se persiste. */
+    @org.springframework.data.annotation.Transient
+    private Integer horaInicio;
+
+    @org.springframework.data.annotation.Transient
+    private Integer horaFin;
+
+    public Integer getHoraInicio() {
+        return horaInicio;
+    }
+
+    public void setHoraInicio(Integer horaInicio) {
+        this.horaInicio = horaInicio;
+    }
+
+    public Integer getHoraFin() {
+        return horaFin;
+    }
+
+    public void setHoraFin(Integer horaFin) {
+        this.horaFin = horaFin;
+    }
 }
