@@ -1,69 +1,122 @@
 package com.proyecto.san_felipe.Controllers;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.proyecto.san_felipe.Services.chat.ChatToolRegistry;
+import com.proyecto.san_felipe.Services.chat.LlmClient;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.*;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.client.RestTemplate;
 
-import java.util.*;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/chat")
 public class ChatController {
 
-    @Value("${groq.api.key}")
-    private String groqApiKey;
+    /**
+     * Cuantas rondas de herramientas se permiten antes de exigir una respuesta en texto.
+     * Evita bucles indefinidos y acota el gasto: cada ronda es una llamada a Groq y su
+     * cuota se mide en tokens por minuto.
+     */
+    private static final int MAX_RONDAS_DE_HERRAMIENTAS = 4;
 
-    private final RestTemplate restTemplate = new RestTemplate();
-    private static final String GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
+    /**
+     * Se envia la conversacion completa en cada ronda para que el asistente no pierda
+     * el contexto. Este tope solo actua como red de seguridad: Groq limita los tokens
+     * por minuto, y una conversacion muy larga agotaria la cuota en una sola consulta.
+     * Se conservan los mensajes mas recientes. Ajustable con chat.historial.max-caracteres.
+     */
+    private static final int MAX_CARACTERES_DE_HISTORIAL_POR_DEFECTO = 16000;
 
     private static final String SYSTEM_PROMPT =
-            "Eres el asistente virtual inteligente del Lavadero de Autos San Felipe. " +
-            "Tu rol es ayudar al personal del negocio con información sobre: " +
-            "- Registro y consulta de lavados realizados. " +
-            "- Servicios ofrecidos: Básico, Completo y Premium (precios, duración, diferencias). " +
-            "- Gestión de clientes: historial, datos de contacto, vehículos registrados. " +
-            "- Empleados: asignación de lavados, cálculo de comisiones (35% del total). " +
-            "- Vehículos: consulta por placa, marca, color. " +
-            "- Predicción de demanda: interpretar resultados del modelo de machine learning. " +
-            "- Consejos sobre cómo mejorar la atención al cliente y aumentar las ventas. " +
-            "Responde siempre en español, de forma amable, clara y profesional.";
+            "Eres el asistente operativo del Lavadero de Autos San Felipe. Ayudas al personal a "
+            + "consultar informacion y a registrar operaciones en el sistema.\n"
+            + "\n"
+            + "Reglas:\n"
+            + "- Tienes herramientas conectadas a la base de datos real. Usalas siempre para "
+            + "responder sobre clientes, vehiculos, empleados, servicios, precios, lavados y "
+            + "comisiones. Nunca inventes ni estimes esos datos.\n"
+            + "- Antes de registrar algo, asegurate de tener todos los datos necesarios. Si falta "
+            + "alguno, preguntaselo al usuario en vez de suponerlo.\n"
+            + "- Si una herramienta devuelve un error, explicaselo al usuario en lenguaje claro y "
+            + "pidele el dato que falta o esta ambiguo.\n"
+            + "- La comision de un empleado es el 35% de los servicios que realizo, pero calculala "
+            + "siempre con la herramienta correspondiente.\n"
+            + "- Puedes estimar la demanda por franjas horarias. El modelo se apoya sobre todo en "
+            + "el dia y la hora; si no te dan el clima, se toma el real del lavadero.\n"
+            + "- No repitas una herramienta con los mismos argumentos: si ya no encontro nada, "
+            + "diselo al usuario en vez de volver a intentarlo.\n"
+            + "- Los importes van en pesos y se escriben con el simbolo $ (por ejemplo $50.75). "
+            + "Nunca uses otra moneda ni inventes su simbolo.\n"
+            + "- Responde en espaniol, de forma breve, amable y profesional.\n"
+            + "- Al confirmar un registro, repite los datos que quedaron guardados.";
+
+    @Value("${chat.historial.max-caracteres:" + MAX_CARACTERES_DE_HISTORIAL_POR_DEFECTO + "}")
+    private int maxCaracteresDeHistorial;
+
+    @Autowired
+    private LlmClient llmClient;
+
+    @Autowired
+    private ChatToolRegistry herramientas;
+
+    private final ObjectMapper mapeadorJson = new ObjectMapper();
+
+    /** Utilidad de diagnostico: que herramientas tiene disponibles el asistente. */
+    @GetMapping("/tools")
+    public Map<String, Object> listarHerramientas() {
+        Map<String, Object> respuesta = new LinkedHashMap<>();
+        respuesta.put("modelo", llmClient.modelo());
+        respuesta.put("configurado", llmClient.estaConfigurado());
+        respuesta.put("herramientas", herramientas.nombres());
+        // Las definiciones viajan en cada ronda, asi que su peso marca cuantas caben
+        // en la cuota por minuto de Groq.
+        respuesta.put("tokens_de_las_definiciones", herramientas.tokensDeLasDefiniciones());
+        return respuesta;
+    }
 
     @PostMapping("/message")
     public ResponseEntity<?> sendMessage(@RequestBody ChatRequest request) {
+        if (!llmClient.estaConfigurado()) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(Map.of(
+                    "error", "El asistente no esta configurado: falta la clave del proveedor. Define "
+                            + "la variable de entorno LLM_API_KEY o ponla en application-local.properties."));
+        }
+        if (request == null || request.getMessage() == null || request.getMessage().isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "El mensaje esta vacio."));
+        }
+
         try {
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.setBearerAuth(groqApiKey);
+            List<Map<String, Object>> mensajes = new ArrayList<>();
+            mensajes.add(mensaje("system", SYSTEM_PROMPT + "\n\nLa fecha de hoy es " + LocalDate.now() + "."));
+            mensajes.addAll(historialReciente(request.getHistory()));
+            mensajes.add(mensaje("user", request.getMessage()));
 
-            List<Map<String, String>> messages = new ArrayList<>();
-            messages.add(Map.of("role", "system", "content", SYSTEM_PROMPT));
-            messages.add(Map.of("role", "user", "content", request.getMessage()));
+            // Registro de lo que el asistente ejecuto, para mostrarlo en la interfaz.
+            List<String> acciones = new ArrayList<>();
 
-            Map<String, Object> body = new HashMap<>();
-            body.put("model", "llama-3.1-8b-instant");
-            body.put("messages", messages);
-            body.put("temperature", 0.7);
-            body.put("max_tokens", 1024);
+            for (int ronda = 0; ronda < MAX_RONDAS_DE_HERRAMIENTAS; ronda++) {
+                Map<String, Object> respuesta = llmClient.completar(mensajes, herramientas.definiciones());
+                List<Map<String, Object>> llamadas = extraerLlamadas(respuesta);
 
-            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
+                if (llamadas.isEmpty()) {
+                    return ResponseEntity.ok(new ChatResponse(texto(respuesta.get("content")), acciones));
+                }
 
-            ResponseEntity<Map> response = restTemplate.exchange(
-                    GROQ_API_URL, HttpMethod.POST, entity, Map.class);
-
-            if (response.getBody() != null) {
-                List<Map<String, Object>> choices =
-                        (List<Map<String, Object>>) response.getBody().get("choices");
-                if (choices != null && !choices.isEmpty()) {
-                    Map<String, Object> message =
-                            (Map<String, Object>) choices.get(0).get("message");
-                    String content = (String) message.get("content");
-                    return ResponseEntity.ok(new ChatResponse(content));
+                mensajes.add(respuesta);
+                for (Map<String, Object> llamada : llamadas) {
+                    mensajes.add(ejecutar(llamada, acciones));
                 }
             }
 
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "No se recibió respuesta del modelo"));
+            // Se agoto el presupuesto de herramientas: se pide una respuesta final en texto.
+            return ResponseEntity.ok(new ChatResponse(respuestaDeCierre(mensajes), acciones));
 
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -71,16 +124,137 @@ public class ChatController {
         }
     }
 
+    /**
+     * Pide la respuesta final sin herramientas. Se le indica explicitamente que ya no puede
+     * usarlas, porque si lo intenta Groq rechaza la generacion con un 400; si aun asi ocurre,
+     * se devuelve un aviso en vez de propagar el error.
+     */
+    private String respuestaDeCierre(List<Map<String, Object>> mensajes) {
+        List<Map<String, Object>> conInstruccion = new ArrayList<>(mensajes);
+        conInstruccion.add(mensaje("system",
+                "Ya no puedes usar herramientas. Responde al usuario en texto con la informacion "
+                        + "que obtuviste. Si te falta algun dato, pideselo."));
+        try {
+            Map<String, Object> cierre = llmClient.completar(conInstruccion, List.of());
+            String contenido = texto(cierre.get("content"));
+            if (!contenido.isBlank()) {
+                return contenido;
+            }
+        } catch (Exception e) {
+            // Cae al mensaje de reserva de abajo.
+        }
+        return "Consulte los datos pero no consegui redactar la respuesta. "
+                + "Puedes reformular la pregunta o pedirmelo por partes?";
+    }
+
+    /** Ejecuta una tool_call y arma el mensaje de rol "tool" que espera el modelo. */
+    private Map<String, Object> ejecutar(Map<String, Object> llamada, List<String> acciones) {
+        @SuppressWarnings("unchecked")
+        Map<String, Object> funcion = (Map<String, Object>) llamada.get("function");
+        String nombre = texto(funcion.get("name"));
+
+        Map<String, Object> argumentos;
+        try {
+            String crudos = texto(funcion.get("arguments"));
+            argumentos = crudos.isBlank() ? Map.of() : mapeadorJson.readValue(crudos, Map.class);
+        } catch (Exception e) {
+            argumentos = Map.of();
+        }
+
+        Object resultado = herramientas.ejecutar(nombre, argumentos);
+        acciones.add(nombre);
+
+        Map<String, Object> mensaje = new LinkedHashMap<>();
+        mensaje.put("role", "tool");
+        mensaje.put("tool_call_id", texto(llamada.get("id")));
+        mensaje.put("name", nombre);
+        mensaje.put("content", serializar(resultado));
+        return mensaje;
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> extraerLlamadas(Map<String, Object> respuesta) {
+        Object llamadas = respuesta.get("tool_calls");
+        if (llamadas instanceof List<?> lista && !lista.isEmpty()) {
+            return (List<Map<String, Object>>) lista;
+        }
+        return List.of();
+    }
+
+    /**
+     * Convierte al formato de la API toda la conversacion que quepa en el presupuesto,
+     * recorriendola del final al principio para conservar siempre lo mas reciente.
+     */
+    private List<Map<String, Object>> historialReciente(List<ChatMessage> historial) {
+        if (historial == null || historial.isEmpty()) {
+            return List.of();
+        }
+        List<Map<String, Object>> convertidos = new ArrayList<>();
+        int caracteres = 0;
+        for (int i = historial.size() - 1; i >= 0; i--) {
+            ChatMessage entrada = historial.get(i);
+            if (entrada == null || entrada.getText() == null || entrada.getText().isBlank()) {
+                continue;
+            }
+            caracteres += entrada.getText().length();
+            if (caracteres > maxCaracteresDeHistorial) {
+                break;
+            }
+            String rol = "user".equals(entrada.getRole()) ? "user" : "assistant";
+            convertidos.add(0, mensaje(rol, entrada.getText()));
+        }
+        return convertidos;
+    }
+
+    private Map<String, Object> mensaje(String rol, String contenido) {
+        Map<String, Object> mensaje = new LinkedHashMap<>();
+        mensaje.put("role", rol);
+        mensaje.put("content", contenido);
+        return mensaje;
+    }
+
+    private String serializar(Object valor) {
+        try {
+            return mapeadorJson.writeValueAsString(valor);
+        } catch (Exception e) {
+            return String.valueOf(valor);
+        }
+    }
+
+    private String texto(Object valor) {
+        return valor == null ? "" : String.valueOf(valor);
+    }
+
     static class ChatRequest {
         private String message;
+        private List<ChatMessage> history;
+
         public String getMessage() { return message; }
         public void setMessage(String message) { this.message = message; }
+        public List<ChatMessage> getHistory() { return history; }
+        public void setHistory(List<ChatMessage> history) { this.history = history; }
+    }
+
+    static class ChatMessage {
+        private String role;
+        private String text;
+
+        public String getRole() { return role; }
+        public void setRole(String role) { this.role = role; }
+        public String getText() { return text; }
+        public void setText(String text) { this.text = text; }
     }
 
     static class ChatResponse {
-        private String response;
-        public ChatResponse(String response) { this.response = response; }
+        private final String response;
+        private final List<String> actions;
+
+        public ChatResponse(String response, List<String> actions) {
+            this.response = response;
+            this.actions = actions;
+        }
+
         public String getResponse() { return response; }
-        public void setResponse(String response) { this.response = response; }
+        public List<String> getActions() { return actions; }
     }
 }
