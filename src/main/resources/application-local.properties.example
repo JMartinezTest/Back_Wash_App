@@ -1,0 +1,11 @@
+# Configuracion local. Este archivo NO se versiona (ver .gitignore).
+# Se activa arrancando con: ./mvnw spring-boot:run -Dspring-boot.run.profiles=local
+# La clave se saca de https://cloud.cerebras.ai
+llm.api.key=PON_AQUI_TU_CLAVE_DE_CEREBRAS
+
+# Para volver a Groq bastaria con:
+# llm.api.url=https://api.groq.com/openai/v1/chat/completions
+# llm.model=openai/gpt-oss-120b
+
+# Cuenta inicial en desarrollo
+admin.password=admin123

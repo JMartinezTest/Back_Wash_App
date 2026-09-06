@@ -45,6 +45,10 @@ public class SecurityConfig {
     @Autowired
     private AuthService authService;
 
+    /** Dominios extra permitidos, para no tener que tocar el codigo al cambiar de hosting. */
+    @org.springframework.beans.factory.annotation.Value("${cors.origenes:}")
+    private String origenesAdicionales;
+
     private static final Key SECRET_KEY = Keys.hmacShaKeyFor("secretsecretsecretsecretsecretsecret".getBytes());
 
     @Bean
@@ -77,6 +81,14 @@ public class SecurityConfig {
         configuration.addAllowedOriginPattern("http://localhost:5173");
         configuration.addAllowedOriginPattern("https://front-wash-app-production.up.railway.app");
         configuration.addAllowedOriginPattern("https://*.railway.app");
+        // Despliegues del frontend en Vercel (produccion y vistas previas de cada rama).
+        configuration.addAllowedOriginPattern("https://*.vercel.app");
+        // Dominios propios: se indican en CORS_ORIGENES separados por comas.
+        for (String origen : origenesAdicionales.split(",")) {
+            if (!origen.isBlank()) {
+                configuration.addAllowedOriginPattern(origen.trim());
+            }
+        }
         configuration.addAllowedMethod("*");
         configuration.addAllowedHeader("*");
         configuration.setAllowCredentials(true);
@@ -153,6 +165,12 @@ protected void doFilterInternal(HttpServletRequest request, HttpServletResponse 
         private final Map<String, String> resetTokens = new HashMap<>();
 
         public String register(String username, String password) {
+            if (username == null || username.isBlank() || password == null || password.isBlank()) {
+                throw new IllegalArgumentException("El usuario y la contrasenia son obligatorios.");
+            }
+            if (userRepository.findByUsername(username).isPresent()) {
+                throw new IllegalArgumentException("El usuario '" + username + "' ya existe.");
+            }
             User user = new User();
             user.setUsername(username);
             user.setPassword(passwordEncoder.encode(password));
