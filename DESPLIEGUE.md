@@ -28,6 +28,12 @@ SRV, y además evita el viaje hasta AWS Virginia en cada consulta.
 No hace falta abrir puertos ni configurar cortafuegos: los dos servicios se ven
 entre sí por la red privada del proyecto.
 
+**No añadas `-Djava.net.preferIPv4Stack=true`.** Los dominios `.railway.internal`
+resuelven a IPv6 (en entornos anteriores a octubre de 2025, solo a IPv6), y esa
+opción deja a la JVM sin poder abrir sockets IPv6: el backend no vería la base de
+datos. Java usa IPv6 por defecto cuando está disponible, así que no hay que
+configurar nada.
+
 ## 2. Backend — Railway
 
 Railway detecta Maven y compila solo; no hace falta Dockerfile.
@@ -119,6 +125,7 @@ dominio propio, añádelo en `CORS_ORIGENES`.
 | `Failed looking up TXT record` | La cadena usa `mongodb+srv://`. Ese formato necesita registros DNS SRV y TXT que el contenedor no resuelve: usa la forma `mongodb://` |
 | `Only one host allowed when using mongodb+srv` | La cadena lista varios nodos pero conserva el prefijo `+srv`. Quítalo |
 | `SSLException: Received fatal alert: internal_error` | Nodo de Atlas con el handshake roto. No se arregla desde el cliente: ni forzando TLS 1.2 ni IPv4 |
+| `IPv6 protocol family unavailable` | Hay un `-Djava.net.preferIPv4Stack=true` puesto. Quítalo: la red privada de Railway es IPv6 |
 | El navegador bloquea las llamadas | El dominio no está permitido: añádelo a `CORS_ORIGENES` |
 | El chat dice que no está configurado | Falta `LLM_API_KEY` |
 | Recargar una página da 404 | Falta `vercel.json` con las reescrituras |
