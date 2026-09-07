@@ -5,21 +5,28 @@ frontend en **Vercel**. Hazlo en ese orden: cada paso necesita un dato del anter
 
 ---
 
-## 1. Base de datos — MongoDB Atlas
+## 1. Base de datos — MongoDB en Railway
 
-1. Crea una cuenta en <https://cloud.mongodb.com> y un clúster **M0** (gratuito).
-2. En **Database Access**, crea un usuario con contraseña.
-3. En **Network Access**, añade `0.0.0.0/0`. Railway no publica un rango fijo de
-   direcciones, así que restringirlo por IP dejaría el backend fuera.
-4. Copia la cadena de conexión y añádele el nombre de la base:
+Se usa el propio MongoDB de Railway, no Atlas. El plan gratuito de Atlas (M0)
+comparte un proxy que devuelve nodos con el handshake TLS roto, y el nodo
+defectuoso cambia según desde dónde te conectes: la aplicación arranca desde una
+máquina y muere desde el hosting. Aquí la conexión es interna, sin TLS ni DNS
+SRV, y además evita el viaje hasta AWS Virginia en cada consulta.
+
+1. En tu proyecto de Railway: **New → Database → Add MongoDB**.
+2. Railway crea el servicio y sus variables. La que interesa es `MONGO_URL`,
+   que apunta a la red interna del proyecto y tiene esta forma:
 
    ```
-   mongodb+srv://USUARIO:CONTRASEÑA@cluster0.xxxxx.mongodb.net/DB_SanFelipe?retryWrites=true&w=majority
+   mongodb://mongo:CONTRASEÑA@mongo.railway.internal:27017
    ```
 
-   Si la contraseña lleva `@`, `:` o `/`, codifícala (`@` → `%40`).
+   Viene sin nombre de base y sin parámetros: los añadimos al referenciarla.
+   (`MONGO_PUBLIC_URL` solo existe si habilitas el acceso público, y no hace
+   falta para que el backend hable con la base.)
 
----
+No hace falta abrir puertos ni configurar cortafuegos: los dos servicios se ven
+entre sí por la red privada del proyecto.
 
 ## 2. Backend — Railway
 
@@ -30,7 +37,7 @@ Railway detecta Maven y compila solo; no hace falta Dockerfile.
 
    | Variable | Valor | Obligatoria |
    |---|---|---|
-   | `SPRING_DATA_MONGODB_URI` | la cadena del paso 1 | sí |
+   | `SPRING_DATA_MONGODB_URI` | `${{Mongo.MONGO_URL}}/DB_SanFelipe?authSource=admin` | sí |
    | `ADMIN_PASSWORD` | contraseña de la primera cuenta | sí |
    | `LLM_API_KEY` | tu clave de Cerebras (`csk-...`) | para el chat |
    | `ADMIN_USUARIO` | `admin` | no |
@@ -40,6 +47,11 @@ Railway detecta Maven y compila solo; no hace falta Dockerfile.
    | `CORS_ORIGENES` | dominios propios, separados por comas | no |
 
    No definas `PORT`: lo inyecta Railway.
+
+   Sustituye `Mongo` por el nombre real que tenga tu servicio de base de datos.
+   Los dos añadidos importan: sin `/DB_SanFelipe` la aplicación escribiría en la
+   base por defecto, y **sin `?authSource=admin` el arranque falla con
+   `AuthenticationFailed`**, porque el usuario de Railway vive en la base `admin`.
 
 3. **Settings → Networking → Generate Domain**. Guarda la URL.
 4. Comprueba que responde:
@@ -103,6 +115,10 @@ dominio propio, añádelo en `CORS_ORIGENES`.
 | Railway no compila | Falta `.mvn/wrapper/maven-wrapper.properties` en el repositorio, o `mvnw` no tiene permiso de ejecución |
 | El despliegue arranca pero no responde | La aplicación no leyó `PORT`. Comprueba que no has definido `SERVER_PORT` a mano |
 | No se puede iniciar sesión | Falta `ADMIN_PASSWORD`, o la base de datos ya tenía usuarios de antes |
+| `AuthenticationFailed` al arrancar | Falta `?authSource=admin` al final de la cadena de conexión |
+| `Failed looking up TXT record` | La cadena usa `mongodb+srv://`. Ese formato necesita registros DNS SRV y TXT que el contenedor no resuelve: usa la forma `mongodb://` |
+| `Only one host allowed when using mongodb+srv` | La cadena lista varios nodos pero conserva el prefijo `+srv`. Quítalo |
+| `SSLException: Received fatal alert: internal_error` | Nodo de Atlas con el handshake roto. No se arregla desde el cliente: ni forzando TLS 1.2 ni IPv4 |
 | El navegador bloquea las llamadas | El dominio no está permitido: añádelo a `CORS_ORIGENES` |
 | El chat dice que no está configurado | Falta `LLM_API_KEY` |
 | Recargar una página da 404 | Falta `vercel.json` con las reescrituras |
