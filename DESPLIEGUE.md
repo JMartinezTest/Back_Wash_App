@@ -77,20 +77,39 @@ público, así que ahora viene del entorno.
 
 ---
 
-## 3. Frontend — Vercel
+## 3. Frontend
 
-1. **Add New → Project** → `Front-Wash-App`. Vercel lee `vercel.json`, así que el
-   comando de compilación y la carpeta de salida ya vienen configurados.
-2. En **Environment Variables**, define:
+Sirve igual en Railway o en Vercel. En ambos casos la única variable
+imprescindible es:
 
-   | Variable | Valor |
-   |---|---|
-   | `PUBLIC_API_BASE_URL` | la URL del paso 2, **sin barra final** |
+| Variable | Valor |
+|---|---|
+| `PUBLIC_API_BASE_URL` | la URL del backend, **sin barra final** |
 
-   Es la única imprescindible. Sin ella la aplicación apunta al backend antiguo.
-3. Despliega y entra con `admin` y la contraseña que pusiste en `ADMIN_PASSWORD`.
+Es una variable de **compilación**, no de ejecución: rsbuild la incrusta en el
+paquete al construirlo. Si la cambias, hay que volver a desplegar; no basta con
+reiniciar el servicio.
 
----
+### En Railway
+
+1. **New → GitHub Repo** → `Front-Wash-App`.
+2. Define `PUBLIC_API_BASE_URL`.
+3. Railway detecta pnpm, ejecuta `pnpm build` y arranca con `pnpm start`
+   (`rsbuild preview`).
+
+`rsbuild.config.mjs` ya contempla lo que hace falta en un contenedor: toma el
+puerto de `PORT`, escucha en `0.0.0.0` y devuelve `index.html` en cualquier ruta,
+de modo que recargar `/clients` no da 404.
+
+### En Vercel
+
+1. **Add New → Project** → `Front-Wash-App`. Lee `vercel.json`, así que el
+   comando de compilación, la carpeta de salida y las reescrituras ya vienen
+   configurados.
+2. Define `PUBLIC_API_BASE_URL`.
+
+En ambos casos, entra con `admin` y la contraseña que pusiste en
+`ADMIN_PASSWORD`.
 
 ## Comprobaciones
 
