@@ -77,27 +77,34 @@ public class ChatDataAccess {
     }
 
     /**
-     * Busca coincidencia exacta primero y, si no hay, por contenido. Asi "Juan" encuentra
-     * a "Juan Perez" pero un nombre exacto nunca queda tapado por una coincidencia parcial.
+     * Busca coincidencia exacta primero y, si no hay, por palabras sueltas. Asi "Juan"
+     * encuentra a "Juan Perez" pero un nombre exacto nunca queda tapado por uno parcial.
+     *
+     * Se compara palabra a palabra y no la cadena entera porque los nombres reales casi
+     * nunca vienen como los escribe quien pregunta: "gregorio morales" tiene que encontrar
+     * igual a "GREGORIO  MORALES" con un espacio de mas, a "MORALES GREGORIO" y a
+     * "GREGORIO ANDRES MORALES". Comparando cadenas completas, cualquiera de las tres
+     * daba por inexistente a un cliente que si estaba registrado.
      */
     private <T> List<T> filtrar(List<T> candidatos, String busqueda, java.util.function.Function<T, List<String>> campos) {
         String objetivo = normalizar(busqueda);
+        List<String> palabras = List.of(objetivo.split(" "));
         List<T> exactos = new ArrayList<>();
         List<T> parciales = new ArrayList<>();
         for (T candidato : candidatos) {
-            for (String campo : campos.apply(candidato)) {
-                String valor = normalizar(campo);
-                if (valor.isEmpty()) {
-                    continue;
-                }
-                if (valor.equals(objetivo)) {
-                    exactos.add(candidato);
-                    break;
-                }
-                if (valor.contains(objetivo) || objetivo.contains(valor)) {
-                    parciales.add(candidato);
-                    break;
-                }
+            List<String> valores = campos.apply(candidato).stream()
+                    .map(this::normalizar)
+                    .filter(valor -> !valor.isEmpty())
+                    .toList();
+            if (valores.stream().anyMatch(objetivo::equals)) {
+                exactos.add(candidato);
+                continue;
+            }
+            String texto = String.join(" ", valores);
+            if (palabras.stream().allMatch(texto::contains)
+                    // Al reves: se escribe de mas ("el cliente juan perez") y aun asi debe valer.
+                    || valores.stream().anyMatch(objetivo::contains)) {
+                parciales.add(candidato);
             }
         }
         return exactos.isEmpty() ? parciales : exactos;
@@ -131,6 +138,19 @@ public class ChatDataAccess {
         vista.put("nombre", nombreCompleto(cliente.getName(), cliente.getLastName()));
         vista.put("nit", cliente.getNit());
         vista.put("telefono", cliente.getPhoneNumber());
+        return vista;
+    }
+
+    /**
+     * El cliente con sus vehiculos. Quien pregunta por un cliente para registrarle un
+     * lavado necesita saber que coches tiene, y sin esto el asistente gastaba otra ronda
+     * -de las cuatro que hay- en preguntar por una placa que ya estaba guardada.
+     */
+    public Map<String, Object> describirClienteConVehiculos(Client cliente) {
+        Map<String, Object> vista = describirCliente(cliente);
+        vista.put("vehiculos", carRepository.findByClientId(cliente.getId()).stream()
+                .map(c -> texto(c.getLicencePlate()) + " (" + texto(c.getMake()) + ")")
+                .toList());
         return vista;
     }
 
@@ -218,13 +238,13 @@ public class ChatDataAccess {
         return valor == null ? "" : valor;
     }
 
-    /** Minusculas y sin acentos, para que "Perez" y "Pérez" sean lo mismo. */
+    /** Minusculas, sin acentos y sin espacios de sobra, para que "Perez" y "Pérez" sean lo mismo. */
     private String normalizar(String valor) {
         if (valor == null) {
             return "";
         }
         String sinAcentos = Normalizer.normalize(valor, Normalizer.Form.NFD)
                 .replaceAll("\\p{InCombiningDiacriticalMarks}+", "");
-        return sinAcentos.trim().toLowerCase();
+        return sinAcentos.trim().toLowerCase().replaceAll("\\s+", " ");
     }
 }

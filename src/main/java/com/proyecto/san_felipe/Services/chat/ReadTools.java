@@ -74,14 +74,16 @@ public class ReadTools {
         propiedades.put("busqueda", texto("Nombre, apellido o NIT. Omitelo para listar todos."));
         return new ChatTool(
                 "buscar_clientes",
-                "Busca clientes por nombre, apellido o NIT. Sin parametros los devuelve todos.",
+                "Busca clientes por nombre, apellido o NIT, con sus vehiculos. Sin parametros "
+                        + "los devuelve todos.",
                 params(propiedades),
                 args -> {
                     String busqueda = opcional(args, "busqueda");
                     if (busqueda == null) {
                         return conTope(repositorio.findAll().stream().map(datos::describirCliente).toList());
                     }
-                    return List.of(datos.describirCliente(datos.resolverCliente(busqueda)));
+                    // Con sus vehiculos: es lo siguiente que hace falta para registrarle un lavado.
+                    return List.of(datos.describirClienteConVehiculos(datos.resolverCliente(busqueda)));
                 });
     }
 
