@@ -46,6 +46,30 @@ public class ChatToolRegistry {
     }
 
     /**
+     * Lo que pesa cada herramienta por separado. Las definiciones viajan enteras en cada
+     * ronda, asi que este desglose es lo que dice donde recortar si la cuota aprieta.
+     */
+    public Map<String, Long> tokensPorHerramienta() {
+        ObjectMapper mapeador = new ObjectMapper();
+        Map<String, Long> pesos = new LinkedHashMap<>();
+        for (ChatTool herramienta : herramientas.values()) {
+            try {
+                Map<String, Object> definicion = Map.of(
+                        "type", "function",
+                        "function", Map.of(
+                                "name", herramienta.name(),
+                                "description", herramienta.description(),
+                                "parameters", herramienta.parameters()));
+                pesos.put(herramienta.name(),
+                        CuotaLlm.estimarTokens(mapeador.writeValueAsString(definicion).length()));
+            } catch (Exception e) {
+                pesos.put(herramienta.name(), -1L);
+            }
+        }
+        return pesos;
+    }
+
+    /**
      * Ejecuta una herramienta. Los fallos se devuelven como dato, no como excepcion:
      * asi el modelo lee el error y puede corregir los argumentos o repreguntar al usuario.
      */

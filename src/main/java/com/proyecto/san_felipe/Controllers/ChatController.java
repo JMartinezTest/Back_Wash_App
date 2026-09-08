@@ -28,11 +28,11 @@ public class ChatController {
 
     /**
      * Se envia la conversacion completa en cada ronda para que el asistente no pierda
-     * el contexto. Este tope solo actua como red de seguridad: Groq limita los tokens
-     * por minuto, y una conversacion muy larga agotaria la cuota en una sola consulta.
+     * el contexto, asi que este tope es lo que mas pesa despues de las herramientas:
+     * son unos 2000 tokens que viajan en cada una de las rondas de cada consulta.
      * Se conservan los mensajes mas recientes. Ajustable con chat.historial.max-caracteres.
      */
-    private static final int MAX_CARACTERES_DE_HISTORIAL_POR_DEFECTO = 16000;
+    private static final int MAX_CARACTERES_DE_HISTORIAL_POR_DEFECTO = 8000;
 
     private static final String SYSTEM_PROMPT =
             "Eres el asistente operativo del Lavadero de Autos San Felipe. Ayudas al personal a "
@@ -44,14 +44,20 @@ public class ChatController {
             + "comisiones. Nunca inventes ni estimes esos datos.\n"
             + "- Antes de registrar algo, asegurate de tener todos los datos necesarios. Si falta "
             + "alguno, preguntaselo al usuario en vez de suponerlo.\n"
+            + "- Tambien puedes corregir y eliminar registros. Al corregir, manda solo los campos "
+            + "que cambian: el resto se conserva. Antes de eliminar algo, di en una frase que vas "
+            + "a borrar y espera a que el usuario lo confirme; no se puede deshacer.\n"
+            + "- Para corregir o eliminar un lavado necesitas su referencia: buscalo primero con "
+            + "consultar_lavados y usa la referencia que devuelve.\n"
             + "- Si una herramienta devuelve un error, explicaselo al usuario en lenguaje claro y "
             + "pidele el dato que falta o esta ambiguo.\n"
             + "- La comision de un empleado es el 35% de los servicios que realizo, pero calculala "
             + "siempre con la herramienta correspondiente.\n"
-            + "- Puedes estimar la demanda por franjas horarias. El modelo se apoya sobre todo en "
-            + "el dia y la hora; si no te dan el clima, se toma el real del lavadero.\n"
             + "- No repitas una herramienta con los mismos argumentos: si ya no encontro nada, "
             + "diselo al usuario en vez de volver a intentarlo.\n"
+            + "- No puedes prever la demanda futura ni estimarla a partir del historial. Si te la "
+            + "piden, responde directamente que esa estimacion esta en la pantalla de "
+            + "predicciones, sin usar ninguna herramienta.\n"
             + "- Los importes van en pesos y se escriben con el simbolo $ (por ejemplo $50.75). "
             + "Nunca uses otra moneda ni inventes su simbolo.\n"
             + "- Responde en espaniol, de forma breve, amable y profesional.\n"
@@ -78,6 +84,7 @@ public class ChatController {
         // Las definiciones viajan en cada ronda, asi que su peso marca cuantas caben
         // en la cuota por minuto de Groq.
         respuesta.put("tokens_de_las_definiciones", herramientas.tokensDeLasDefiniciones());
+        respuesta.put("tokens_por_herramienta", herramientas.tokensPorHerramienta());
         return respuesta;
     }
 
@@ -106,7 +113,8 @@ public class ChatController {
                 List<Map<String, Object>> llamadas = extraerLlamadas(respuesta);
 
                 if (llamadas.isEmpty()) {
-                    return ResponseEntity.ok(new ChatResponse(texto(respuesta.get("content")), acciones));
+                    return ResponseEntity.ok(
+                            new ChatResponse(conRespaldo(texto(respuesta.get("content"))), acciones));
                 }
 
                 mensajes.add(respuesta);
@@ -145,6 +153,16 @@ public class ChatController {
         }
         return "Consulte los datos pero no consegui redactar la respuesta. "
                 + "Puedes reformular la pregunta o pedirmelo por partes?";
+    }
+
+    /**
+     * El modelo a veces termina el turno sin texto y sin pedir herramientas. Sin esto la
+     * interfaz pintaria una burbuja vacia, que parece que el asistente esta averiado.
+     */
+    private String conRespaldo(String contenido) {
+        return contenido.isBlank()
+                ? "No consegui redactar la respuesta. Puedes repetirme lo que necesitas?"
+                : contenido;
     }
 
     /** Ejecuta una tool_call y arma el mensaje de rol "tool" que espera el modelo. */

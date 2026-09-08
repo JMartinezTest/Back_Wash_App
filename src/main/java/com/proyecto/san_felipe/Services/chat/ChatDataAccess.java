@@ -109,8 +109,12 @@ public class ChatDataAccess {
      */
     private <T> T unico(List<T> encontrados, String tipo, String busqueda, java.util.function.Function<T, String> etiqueta) {
         if (encontrados.isEmpty()) {
+            // Se recuerda que hay otras colecciones: un mismo nombre puede ser cliente o
+            // empleado, y sin esta pista el modelo se queda en la que probo primero.
             throw new IllegalArgumentException(
-                    "No se encontro ningun " + tipo + " que coincida con '" + busqueda + "'.");
+                    "No se encontro ningun " + tipo + " que coincida con '" + busqueda + "'. "
+                    + "Si en realidad es un cliente, un empleado, un vehiculo o un servicio, "
+                    + "vuelve a intentarlo con la herramienta de esa categoria.");
         }
         if (encontrados.size() > 1) {
             String opciones = encontrados.stream().map(etiqueta).reduce((a, b) -> a + "; " + b).orElse("");
@@ -162,6 +166,10 @@ public class ChatDataAccess {
     /** Convierte un lavado a nombres. Si un id ya no existe se marca en vez de fallar. */
     public Map<String, Object> describirLavado(WashRecord lavado) {
         Map<String, Object> vista = new LinkedHashMap<>();
+        // Un lavado no tiene ningun dato que lo identifique de forma unica (el mismo
+        // cliente puede lavar el mismo coche dos veces el mismo dia), asi que se
+        // expone su referencia para poder editarlo o eliminarlo despues.
+        vista.put("referencia", lavado.getId());
         vista.put("fecha", lavado.getDate());
         vista.put("cliente", clientRepository.findById(texto(lavado.getClient()))
                 .map(c -> nombreCompleto(c.getName(), c.getLastName()))
